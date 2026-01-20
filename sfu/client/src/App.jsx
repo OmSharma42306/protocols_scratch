@@ -1,35 +1,45 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import { socket } from "./sockets/sockets"
+import {Device} from "mediasoup-client"
+let device , sendTransport;
 
-function App() {
-  const [count, setCount] = useState(0)
+export default function App(){
+  
 
-  return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.jsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
-  )
+  socket.onmessage = async (event) =>{
+    const msg = JSON.parse(event.data);
+    if(msg.type === "RTPCAPABILITIES"){
+      console.log(' i am here');
+      console.log(msg.rtp)
+      if(!device) device = new Device();
+      await device.load({routerRtpCapabilities : msg.rtp});
+      // device = await new Device();
+      // await device.load(msg.rtp);
+      console.log(' i am here2');
+      socket.send(JSON.stringify({ "action": "createWebRtcTransport", "direction": "send" }
+))
+    }else if(msg.type === "producerTransport"){
+      console.log("Producer Transport : ",msg.producerTransport);
+      if(device){
+sendTransport = device.createSendTransport(msg.producerTransport);
+      console.log("send transport set",sendTransport);
+      }
+      
+    }
+    console.log(msg);
+  }
+  function handleJoinRoom(){
+    socket.send(JSON.stringify({ type : 'client-joined'}))
+  }
+
+  if(sendTransport){
+    sendTransport.on("connect", ({ dtlsParameters }, callback) => {
+    console.log("hey boy",dtlsParameters);
+})
+  }
+  
+
+  
+  return <div>
+    <button onClick={handleJoinRoom}>Join Room 123</button>
+  </div>
 }
-
-export default App
