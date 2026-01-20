@@ -11,6 +11,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "mediasoup": "^3.19.14"
+    "mediasoup": "^3.19.14",
+    "ws": "^8.19.0"
   }
 }
