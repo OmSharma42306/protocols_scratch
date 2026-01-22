@@ -1,7 +1,14 @@
 import mediasoup from "mediasoup";
 import { WebSocketServer } from "ws";
 
-let worker, router,producerTransport;
+let worker, router;
+
+// transport roles
+let producerTransport,consumerTransport;
+
+// socket roles
+let producerSocket,consumerSocket;
+
 const wss = new WebSocketServer({ port : 8080});
 
 (async ()=>{
@@ -9,24 +16,7 @@ const wss = new WebSocketServer({ port : 8080});
     router = await worker.createRouter({mediaCodecs:[
         {kind : 'video',mimeType:'video/VP8',clockRate:90000}
     ]});
-    
-    // const r = await router.createWebRtcTransport({
-    //     enableTcp : true,
-    //     enableUdp : true,
-    //     preferUdp : true
-    // });
 
-    // {
-    //     r.id,
-    //     r.iceCandidates,
-    //     r.iceParameters,
-    //     r.dtlsParameters
-    // }
-    
-
-    
-
-    console.log('mediasoup router created',router.rtpCapabilities)
 })();
 
 wss.on('connection',function connection(ws){
@@ -44,38 +34,70 @@ wss.on('connection',function connection(ws){
             }            
             ws.send(JSON.stringify({  "type": "RTPCAPABILITIES","rtp": router.rtpCapabilities}));
             console.log("sent");
+            const role = msg.role;
+            if(role === "producer"){
+                producerSocket = ws;
+            }else if(role === "consumer"){
+                consumerSocket = ws;
+            }
             return;
 
         }else if(msg.action === "createWebRtcTransport"){
             if(msg.direction === "send"){
                 producerTransport = await createTransport();
                 console.log("***********************************************")
-                console.log(producerTransport.iceCandidates);
+                // console.log(producerTransport.iceCandidates);
 
                 console.log("***********************************************")
-                ws.send(JSON.stringify({ type : 'producerTransport','producerTransport':  {"id" : producerTransport.id,
+                producerSocket?.send(JSON.stringify({ type : 'producerTransport',producerTransport:  {"id" : producerTransport.id,
     "iceCandidates" : producerTransport.iceCandidates,
     "iceParameters" : producerTransport.iceParameters,
     "dtlsParameters": producerTransport.dtlsParameters,
 }}));
                 return;
+            }else if(msg.direction === "recv"){
+                consumerTransport = await createTransport();
+                console.log("########################");
+                console.log(consumerSocket.iceCandidates);
+                console.log("########################");
+                consumerSocket.send(JSON.stringify({ type : 'consumerTransport',consumerTransport:{ "id" : consumerTransport.id,
+                    "iceCandidates":consumerTransport.iceCandidates,
+                    "iceParameters":consumerTransport.iceParameters,
+                    "dtlsParameters":consumerTransport.dtlsParameters
+                }}));
+                return;
+
             }
         }else if(msg.action === "connectTransport"){
             const d = msg.dtlsParameters;
-            console.log("dere",d);
-            await producerTransport.connect({dtlsParameters : msg.dtlsParameters});
-            ws.send(JSON.stringify({ type: "transportConnected", transportId:msg.transportId }))
-            return;
+            const role = msg.role;
+            // console.log("dere",d);
+            if(role === "producer"){
+                console.log("1 fired.")
+                await producerTransport.connect({dtlsParameters : msg.dtlsParameters});
+                producerSocket.send(JSON.stringify({ type: "transportConnected", transportId:msg.transportId }))
+                return;
+            }else if(role === "consumer"){
+                await consumerTransport.connect({ dtlsParameters : msg.dtlsParameters});
+                consumerSocket.send(JSON.stringify({ type : "transportConnected", transportId : msg.transportId}));
+                return;
+            }
+            
 
         }else if(msg.action === "produce"){
+            console.log("2 fired.")
             const producer = await producerTransport.produce({
                 kind : msg.kind,
                 rtpParameters : msg.rtpParameters
             });
-             ws.send(JSON.stringify({
+            producerSocket.send(JSON.stringify({
     type: "produced",
     producerId: producer.id
   }));
+consumerSocket.send(JSON.stringify({
+    type : "newProducer",
+    producerId : producer.id
+}));
         }
         
     });
@@ -94,7 +116,7 @@ async function createTransport(){
         
    });
 
-   console.log('Transport',transport);
+//    console.log('Transport',transport);
 
 //    {
 //     "id" : transport.id,
@@ -106,5 +128,4 @@ async function createTransport(){
 //    }
     
     return transport;
-
 }
