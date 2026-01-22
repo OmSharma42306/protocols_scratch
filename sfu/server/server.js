@@ -1,7 +1,6 @@
 import mediasoup from "mediasoup";
 import { WebSocketServer } from "ws";
 
-
 let worker, router,producerTransport;
 const wss = new WebSocketServer({ port : 8080});
 
@@ -61,6 +60,22 @@ wss.on('connection',function connection(ws){
 }}));
                 return;
             }
+        }else if(msg.action === "connectTransport"){
+            const d = msg.dtlsParameters;
+            console.log("dere",d);
+            await producerTransport.connect({dtlsParameters : msg.dtlsParameters});
+            ws.send(JSON.stringify({ type: "transportConnected", transportId:msg.transportId }))
+            return;
+
+        }else if(msg.action === "produce"){
+            const producer = await producerTransport.produce({
+                kind : msg.kind,
+                rtpParameters : msg.rtpParameters
+            });
+             ws.send(JSON.stringify({
+    type: "produced",
+    producerId: producer.id
+  }));
         }
         
     });
