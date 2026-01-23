@@ -9,6 +9,9 @@ let producerTransport,consumerTransport;
 // socket roles
 let producerSocket,consumerSocket;
 
+// consumer..
+let consumer;
+
 const wss = new WebSocketServer({ port : 8080});
 
 (async ()=>{
@@ -98,6 +101,34 @@ consumerSocket.send(JSON.stringify({
     type : "newProducer",
     producerId : producer.id
 }));
+        }else if(msg.action === "consume"){
+            let producerId = msg.producerId;
+            let rtpCapabilities = msg.rtpCapabilities;
+            let routerConsume = router.canConsume({producerId,rtpCapabilities});
+            if(!routerConsume){
+                consumerSocket.send(JSON.stringify({ msg : "Router Cannot Consume " }));
+                return; 
+            };
+
+            consumer = await consumerTransport.consume({ producerId,rtpCapabilities,paused:true});
+            consumer.on("transportclose", () => console.log("consumer transport closed"));
+        consumer.on("producerclose", () => console.log("producer closed"));
+            console.log("consumer paused:", consumer.paused);
+
+            console.log("Consumer: ",consumer);
+            consumerSocket.send(JSON.stringify({ type : "consumerCreated",consumerParams:{
+                id : consumer.id, producerId : consumer.producerId,kind : consumer.kind,rtpParameters : consumer.rtpParameters,transportId : consumerTransport.id
+
+            } }));
+            console.log("sent message consumer side......");
+            return;
+
+        }else if(msg.action === "resumeConsumer"){
+            await consumer.resume();
+            console.log("consumer paused:", consumer.paused);
+
+            consumerSocket.send(JSON.stringify({ type : "consumerResumed",consumerId : consumer.id}));
+            return;
         }
         
     });
@@ -109,10 +140,11 @@ consumerSocket.send(JSON.stringify({
 
 async function createTransport(){
     const transport = await router.createWebRtcTransport({
-        listenIps:['0.0.0.0'],
+        listenIps:[{ip : '0.0.0.0',announcedIp : '192.168.31.59'}],
         enableTcp : true,
         enableUdp : true,
-        preferUdp : true
+        preferUdp : true,
+        
         
    });
 
