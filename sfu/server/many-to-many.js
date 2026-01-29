@@ -64,7 +64,7 @@ wss.on('connection',function connection(ws){
            return;
         }else if(msg.type === "produce"){
             const wsId = msg.wsId;
-            const transportId = msg.trasportId;
+            const transportId = msg.transportId;
             const peer = peers.get(wsId);
             const entry = peer.transports.get(transportId);
             if(entry.direction !== "send"){
