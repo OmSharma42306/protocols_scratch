@@ -51,7 +51,7 @@ wss.on('connection',function connection(ws){
             const peer = peers.get(wsId);
             peer.transports.set(transport.id,{transport,direction});
 
-            ws.send(JSON.stringify({ type : 'transport',peerTrasnport : {id : transport.id,iceCandidates : transport.iceCandidates,iceParameters : transport.iceParameters,dtlsParameters:transport.dtlsParameters}}));
+            ws.send(JSON.stringify({ type : 'transport',peerTransport : {id : transport.id,iceCandidates : transport.iceCandidates,iceParameters : transport.iceParameters,dtlsParameters:transport.dtlsParameters}}));
             return;
 
         }else if(msg.type === "connectTransport"){
@@ -139,7 +139,7 @@ wss.on('connection',function connection(ws){
         
     });
 
-    ws.send("Socker Server Connected..!");
+    ws.send(JSON.stringify({success : "Socker Server Connected..!"}));
     ws.on('close',()=>{
         'Client Disconnected!...'
     });
