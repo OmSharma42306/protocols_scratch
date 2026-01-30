@@ -45,6 +45,23 @@ wss.on('connection',function connection(ws){
             console.log(peers.get(wsId));
             
             ws.send(JSON.stringify({type : "rtpCapabilities",rtp : router.rtpCapabilities , msg : "success"}));
+
+
+            // issue : “Meeting already started → new consumer joins → cannot see existing screen share” 
+            // fix : send existing producers list to client 
+            const existingProducers = [];
+            for(const[peerId,peer] of peers.entries()){
+                if(peerId === wsId) continue;
+                for(const producer of peer.producers.values()){
+                    existingProducers.push({
+                        producerId : producer.id,
+                        peerId
+                    });
+                }
+            }
+
+            ws.send(JSON.stringify({ type : "existingProducers",producers : existingProducers}));
+
             return;
         }else if(msg.type === "createWebRtcTransport"){
             console.log(msg.type,msg.wsId);
