@@ -21,7 +21,12 @@ let transportReady = false;
 export default function RMany(){
     const [wsId,setWsId] = useState('');
     const videoRef = useRef();
-
+    // setting an consumers state to show multiple grid layouts of producers.
+    const [consumers,setConsumers] = useState({});
+    // format...
+    // {
+    //     producerId : {consumer,stream}
+    // }
     useEffect(()=>{
         socket.onmessage = async(event) =>{
         const msg = JSON.parse(event.data);
@@ -75,11 +80,16 @@ export default function RMany(){
            
             const track = consumer.track;
             const stream = new MediaStream([track]);
+            // we get producerId from consumerParams.producerId;
+            setConsumers(prev=>({
+                ...prev,
+                [msg.consumerParams.producerId ] : {consumer,stream}
+            }));
             console.log(stream);
             console.log("track",track);
-            if(videoRef.current){
-                videoRef.current.srcObject = stream;
-            }
+            // if(videoRef.current){
+            //     videoRef.current.srcObject = stream;
+            // }
 
             socket.send(JSON.stringify({ type : "resumeConsumer",wsId:wsId,consumerId : consumer.id}));
             console.log("message sent");
@@ -131,6 +141,29 @@ export default function RMany(){
         <br />
             <h1>video ;;;</h1>
             {/* <video ref={videoRef} muted autoPlay playsInline></video> */}
-            <video ref={videoRef} autoPlay playsInline muted style={{ width: "600px", border: "1px solid red" }} />
+            {/* <video ref={videoRef} autoPlay playsInline muted style={{ width: "600px", border: "1px solid red" }} /> */}
+
+            <div className="grid">
+                {Object.entries(consumers).map(([producerId,data])=>{
+                    console.log("finally",producerId,data);
+                    return <Videotile key={producerId} stream={data.stream}/>
+                    
+                })}
+            </div>
     </div>
+}
+
+
+function Videotile({stream}){
+    const ref = useRef(null);
+
+    useEffect(()=>{
+        if(ref.current && !ref.current.srcObject){
+            ref.current.srcObject = stream;
+        }
+    },[stream])
+
+    return(
+        <video ref={ref} autoPlay playsInline muted  style={{ width: "100%", border: "1px solid #444" }}></video>
+    )
 }
